@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=67.7.2", "wheel>=0.40.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hamilton-composer"
+description = "Compose executable pipelines using Apache Hamilton DAGs."
+dynamic = ["version"]
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.2.1",
+    "colorama>=0.4.6",
+    "hydra-core>=1.3.2",
+    "omegaconf>=2.3.0",
+    "rich>=12.0.0",
+    "sf-hamilton>=1.88.0",
+]
+
+[project.optional-dependencies]
+ipython = ["ipython>=9.3.0"]
+graphviz = ["graphviz>=0.21"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.1",
+    "nox>=2025.5.1",
+    "pre-commit>=4.2.0",
+    "ruff>=0.12.0",
+    "sf-hamilton-lsp>=0.1.0",
+    "types-pyyaml>=6.0.12.20250516",
+]
+test = ["pytest", "pytest-cov", "pytest-mock"]
+
+[tool.setuptools.dynamic.version]
+attr = "hamilton_composer.__version__"
+
+[tool.setuptools.package-data]
+"hamilton_composer" = ["py.typed", "logging/default.yaml"]
+
+[tool.uv]
+default-groups = ["dev", "test"]
+environments = ["sys_platform == 'win32'"]
+
+[[tool.uv.index]]
+url = "https://pypi.q.local/simple"
+default = true
