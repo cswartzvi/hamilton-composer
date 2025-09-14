@@ -2,7 +2,7 @@ from hamilton_composer.cli.factory import build_cli
 from hamilton_composer.composer import HamiltonComposer
 from hamilton_composer.pipeline import Pipeline
 
-__version__ = "0.1.0.b1"
+__version__ = "0.1.0"
 
 
 __all__ = [
