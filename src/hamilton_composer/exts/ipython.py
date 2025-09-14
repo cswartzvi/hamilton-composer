@@ -19,7 +19,6 @@ def launch_shell(config: dict[str, Any], pipelines: dict[str, Pipeline]) -> None
     shell.show_banner()
     console = get_console()
     console.print(
-        "\n📦 [cyan]Hamilton Composer IPython shell[/]"
-        "\n✅ Preloaded variables: 'config' and 'pipelines'"
+        "\n[cyan]Hamilton Composer IPython shell[/]\nPreloaded variables: 'config' and 'pipelines'"
     )
     shell.mainloop()

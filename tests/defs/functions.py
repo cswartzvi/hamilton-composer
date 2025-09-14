@@ -1,6 +1,6 @@
 """Simple Hamilton test nodes for basic math operations."""
 
-from typing import Any, Dict, List
+from typing import List
 
 from hamilton.function_modifiers import config
 

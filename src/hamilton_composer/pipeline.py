@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 if TYPE_CHECKING:
@@ -18,28 +17,24 @@ class Pipeline:
     Predefined execution pipeline for Hamilton Directed Acyclic Graphs (DAGs).
 
     This class encapsulates a `hamilton.driver.Driver` with final variables, making it easy to
-    execute the a configured DAG multiple times with different inputs or overrides while maintaining
-    consistent behavior.
+    execute the configured DAG multiple times, with different inputs, in a consistent manner.
 
-    For more information on the Hamilton `Driver` class, see the following:
-    - https://hamilton.dagworks.io/en/latest/concepts/driver/
-    - https://hamilton.dagworks.io/en/latest/reference/drivers/Driver/#driver
-
-    For more information on the Hamilton `Builder` class, see the following:
-    - https://hamilton.dagworks.io/en/latest/concepts/builder/
-    - https://hamilton.dagworks.io/en/latest/reference/drivers/Driver/#hamilton.driver.Builder
 
     Args:
-        builder (hamilton. | Callable[[], Driver]):
+        builder (hamilton.driver.Builder):
             Hamilton builder that will be executed to create the driver. Note that this is done
             lazily to avoid costly imports and execution.
+
+            For more information on the Hamilton `Builder` class, see the following
+            - https://hamilton.dagworks.io/en/latest/concepts/builder/
+            - https://hamilton.dagworks.io/en/latest/reference/drivers/Driver/#hamilton.driver.Builder
         final_vars (list[str | Callable | hamilton.graph_types.HamiltonNode]):
             Final variables that the driver will compute. These can be strings representing node
             names, callable functions, or HamiltonNode instances.
         config (dict[str, Any], optional):
             Configuration data used to build branching DAGs (via the `@config` decorator).
         public (bool, optional):
-            If True (default_), the pipeline is considered public and can be accessed by the CLI.
+            If True (default), the pipeline is considered public and can be accessed by the CLI.
             Pipelines that are not public are considered internal and are not exposed to the CLI
             interface, but can still be used programmatically.
 
@@ -67,16 +62,11 @@ class Pipeline:
         public: bool = True,
     ) -> None:
         if not builder or not isinstance(builder, Builder):
-            raise TypeError(
-                f"Expected 'builder' to be a Hamilton Builder instance, "
-                f"but got {type(builder).__name__}."
-            )
+            name = type(builder).__name__
+            raise TypeError(f"Expected 'builder' to be a Hamilton Builder instance, got {name}.")
         self._builder = builder
-
         if not isinstance(final_vars, list):
-            raise TypeError(
-                f"Expected 'final_vars' to be a list instance, but got {type(final_vars).__name__}."
-            )
+            raise TypeError(f"Expected 'final_vars' to be a list instance, got {final_vars}.")
         self._final_vars = final_vars
         self.description = description
         self.tags = tags if tags is not None else []
@@ -84,32 +74,21 @@ class Pipeline:
 
     @property
     def public(self) -> bool:
-        """
-        Returns whether this pipeline is considered public.
-
-        Public pipelines are accessible via the CLI interface, while internal pipelines are not.
-        """
+        """Returns whether this pipeline is considered public."""
         return self._public
 
     def _build_driver(self, adapters: Iterable[LifecycleAdapter] | None = None) -> Driver:
         """Builds the driver with optionally configuration and adapters."""
-        intermediate = self._builder
-        if adapters:
-            intermediate = intermediate.with_adapters(*adapters)
-        driver = intermediate.build()
-        return driver
+        intermediate = self._builder.with_adapters(*adapters) if adapters else self._builder
+        return intermediate.build()
 
-    def _filter_inputs(
-        self, driver: Driver, raw_inputs: dict[str, Any] | None
+    def _process_inputs(
+        self, driver: Driver, inputs: dict[str, Any] | None
     ) -> dict[str, Any] | None:
-        """Filters inputs key-value pairs that were previously passed to driver configuration."""
-        if not raw_inputs:
+        """Processes inputs key-value pairs that were previously passed to driver configuration."""
+        if not inputs:
             return None
-        filtered_inputs = {}
-        for key, value in raw_inputs.items():
-            if key not in driver.config:
-                filtered_inputs[key] = value
-        return filtered_inputs
+        return {key: value for key, value in inputs.items() if key not in driver.config}
 
     def execute(
         self,
@@ -130,7 +109,7 @@ class Pipeline:
                 customize the execution behavior, such as logging or monitoring.
         """
         driver = self._build_driver(adapters)
-        inputs = self._filter_inputs(driver, inputs)
+        inputs = self._process_inputs(driver, inputs)
         result = driver.execute(
             final_vars=self._final_vars,
             overrides=overrides,  # pyright: ignore[reportArgumentType]
@@ -160,7 +139,7 @@ class Pipeline:
             str: The exported execution result as a string.
         """
         driver = self._build_driver(adapters)
-        inputs = self._filter_inputs(driver, inputs)
+        inputs = self._process_inputs(driver, inputs)
         return driver.export_execution(
             final_vars=self._final_vars,
             inputs=inputs,
@@ -186,7 +165,7 @@ class Pipeline:
                 customize the execution behavior, such as logging or monitoring.
         """
         driver = self._build_driver(adapters)
-        inputs = self._filter_inputs(driver, inputs)
+        inputs = self._process_inputs(driver, inputs)
         driver.validate_execution(
             final_vars=self._final_vars,
             overrides=overrides,  # pyright: ignore[reportArgumentType]
@@ -216,7 +195,7 @@ class Pipeline:
         - https://hamilton.dagworks.io/en/latest/reference/drivers/Driver/
         """
         driver = self._build_driver()
-        inputs = self._filter_inputs(driver, inputs)
+        inputs = self._process_inputs(driver, inputs)
         return driver.visualize_execution(
             final_vars=self._final_vars,
             output_file_path=output_file_path,

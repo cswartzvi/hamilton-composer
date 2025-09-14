@@ -72,8 +72,7 @@ def build_cli(
             name=project_name,
             composer=composer,
             logger=logger,
-            config_directory=kwargs["config_dir"],
-            config_name=kwargs["config_name"],
+            config_file=kwargs["config_file"],
             search_git_root=kwargs["search_git_root"],
             search_recursive=kwargs["search_recursive"],
         )
@@ -94,7 +93,10 @@ def build_cli(
         "-r",
         is_flag=True,
         default=False,
-        help="Search for the configuration directory recursively in parent directories.",
+        help=(
+            "Search for the configuration file recursively in parent directories. Only used if "
+            "`--config-file` is a relative path (either the specified or default value)."
+        ),
     )(app)
 
     app = click.option(
@@ -102,29 +104,19 @@ def build_cli(
         "-g",
         is_flag=True,
         default=False,
-        help="Search for the configuration directory relative to the git root.",
-    )(app)
-
-    app = click.option(
-        "--config-name",
-        default=composer.config_name if composer.config_directory else None,
-        show_default=False,  # The default is set manually in the help
         help=(
-            f"Name of the main Hydra file within the configuration directory.  "
-            f"[default: {composer.config_name if composer.config_name else 'None'}]"
+            "Search for the configuration directory relative to the git root. Only used if "
+            "`--config-file` is a relative path (either the specified or default value)."
         ),
     )(app)
 
     app = click.option(
-        "--config-dir",
-        default=pathlib.Path(composer.config_directory) if composer.config_directory else None,
-        type=click.Path(exists=True, file_okay=False, path_type=pathlib.Path),
+        "--config-file",
+        default=composer.config_file,
         show_default=False,  # The default is set manually in the help
         help=(
-            f"Directory containing the Hydra configuration files. If a relative path is provided, "
-            f"it will be resolved against the current working directory or using the specified "
-            f"search options. If an absolute path is provided, it will be used as is."
-            f" [default: {composer.config_directory if composer.config_directory else 'None'}]"
+            f"Location of YAML configuration file for the project pipelines. "
+            f"[default: {composer.config_file}]"
         ),
     )(app)
 

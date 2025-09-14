@@ -80,11 +80,11 @@ class TestShellCommand:
         mock_context = Mock()
         test_config = {
             "database": {"host": "localhost", "port": 5432},
-            "pipeline_settings": {"batch_size": 100}
+            "pipeline_settings": {"batch_size": 100},
         }
         test_pipelines = {
             "etl_pipeline": Mock(name="etl_pipeline"),
-            "ml_pipeline": Mock(name="ml_pipeline")
+            "ml_pipeline": Mock(name="ml_pipeline"),
         }
         mock_context.load_config.return_value = test_config
         mock_context.find_pipelines.return_value = test_pipelines
@@ -165,4 +165,3 @@ class TestShellCommand:
         mock_context.load_config.assert_called_once_with(())
         mock_context.find_pipelines.assert_called_once_with(mock_config)
         mock_launch_shell.assert_called_once_with(config=mock_config, pipelines=mock_pipelines)
-

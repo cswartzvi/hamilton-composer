@@ -8,17 +8,39 @@
 import nox
 
 nox.options.default_venv_backend = "uv"
+nox.options.sessions = ["lint", "test"]
 # nox.options.envdir = ".cache"
 
 
-@nox.session()
+@nox.session(python="3.12")
+def lint(session: nox.Session) -> None:
+    """Run linters in an isolated environment."""
+    session.install("pre-commit", "pre-commit-uv")
+    session.run(
+        "pre-commit",
+        "run",
+        "--all-files",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+        *session.posargs,
+    )
+
+
+@nox.session(python=["3.10", "3.11", "3.12", "3.13", "3.13t"])
 def test(session: nox.Session) -> None:
     """Run testing suite in an isolated environment."""
-    pyproject = nox.project.load_toml("pyproject.toml")
-
-    # FIXME: For some reason `session.install(".", "--all-extras")` does not work
-    extras = ",".join(pyproject["project"]["optional-dependencies"].keys())
-    session.install(f".[{extras}]", silent=False)
-
-    session.install(*nox.project.dependency_groups(pyproject, "test"))
-    session.run("pytest", "--cov", *session.posargs)
+    session.run_install(
+        "uv",
+        "sync",
+        "--dev",
+        "--all-extras",
+        f"--python={session.virtualenv.location}",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run(
+        "pytest",
+        "--cov=hamilton_composer",
+        "--cov-branch",
+        "--cov-report=html",
+        "--cov-report=term",
+        *session.posargs,
+    )

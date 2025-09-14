@@ -4,9 +4,10 @@ import time
 from importlib.resources import files
 from itertools import chain
 from pathlib import Path
-from typing import Any, Final, override
+from typing import Any, Final
 
 import yaml
+from typing_extensions import override
 
 PACKAGE_LOGGER_NAME: Final[str] = "hamilton_composer"
 DEFAULT_LOGGERS: Final[tuple[str, ...]] = (PACKAGE_LOGGER_NAME, "hamilton.plugins.h_logging")

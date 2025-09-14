@@ -1,12 +1,12 @@
 # Hamilton Composer
 
-Hamilton Composer simplifies the creation and management of [Hamilton](https://hamilton.dagworks.io/) data pipelines with built-in CLI support and optional Hydra configuration management. Transform your Hamilton DAGs into executable applications with minimal boilerplate.
+Hamilton Composer simplifies the creation and management of [Hamilton](https://hamilton.dagworks.io/) data pipelines with built-in CLI support and optional OmegaConf configuration management. Transform your Hamilton DAGs into executable applications with minimal boilerplate.
 
 ## Features
 
 - **Simple Pipeline Management**: Wrap Hamilton Builders in reusable Pipeline objects
+- **Configuration Management**: Optional OmegaConf integration for flexible YAML-based configuration
 - **CLI Generation**: Automatically generate command-line interfaces for your pipelines
-- **Configuration Management**: Optional Hydra integration for flexible configuration
 - **Interactive Shell**: Built-in IPython shell with preloaded pipelines and config
 - **Jupyter Integration**: Use your pipelines directly in Jupyter notebooks
 - **Type Safety**: Full type hints throughout the codebase
@@ -16,235 +16,213 @@ Hamilton Composer simplifies the creation and management of [Hamilton](https://h
 Install using [uv](https://docs.astral.sh/uv/) (recommended):
 
 ```bash
-uv add hamilton-composer
+uv pip install hamilton-composer
 ```
+
+Or with pip:
+
+```bash
+pip install hamilton-composer
+```
+
+### Optional Dependencies
 
 For IPython/Jupyter support:
 ```bash
-uv add "hamilton-composer[ipython]"
+uv pip install "hamilton-composer[ipython]"
 ```
 
 For visualization support:
 ```bash
-uv add "hamilton-composer[graphviz]"
+uv pip install "hamilton-composer[graphviz]"
 ```
 
 ## Quick Start Examples
 
-### 1. Simple Application (Composer Only)
+### 1. Simple Programmatic Usage
 
-Create a basic Hamilton Composer application without CLI or configuration:
+Create and execute pipelines directly in your Python code:
 
 ```python
-# my_functions.py
-def process_data(raw_data: str) -> str:
-    return raw_data.strip().upper()
-
-def count_words(process_data: str) -> int:
-    return len(process_data.split())
-
-# app.py
-from typing import Any, Dict
 from hamilton.driver import Builder
-from hamilton_composer import HamiltonComposer, Pipeline
-import my_functions
+from hamilton_composer import Pipeline, HamiltonComposer
 
-def create_pipelines(config: Dict[str, Any] | None = None) -> Dict[str, Pipeline]:
-    """Create pipelines for the application."""
-    builder = Builder().with_modules(my_functions)
+# Define your Hamilton functions
+def double_value(input_value: int) -> int:
+    return input_value * 2
+
+def add_ten(double_value: int) -> int:
+    return double_value + 10
+
+# Create a pipeline
+def create_pipelines(config=None):
+    from hamilton.ad_hoc_utils import create_temporary_module
+
+    module = create_temporary_module(double_value, add_ten)
+    builder = Builder().with_modules(module)
+
+    return {
+        "math_pipeline": Pipeline(
+            builder=builder,
+            final_vars=["add_ten"],
+            description="Doubles input and adds 10"
+        )
+    }
+
+# Use the composer
+composer = HamiltonComposer(create_pipelines)
+pipelines = composer.find_pipelines()
+result = pipelines["math_pipeline"].execute({"input_value": 5})
+print(result)  # {"add_ten": 20}
+```
+
+### 2. CLI Application (No Configuration)
+
+Create a command-line application from your pipelines:
+
+```python
+# my_app.py
+from typing import Any
+from hamilton.driver import Builder
+from hamilton.ad_hoc_utils import create_temporary_module
+from hamilton_composer import HamiltonComposer, Pipeline, build_cli
+
+def process_text(raw_text: str) -> str:
+    """Clean and process input text."""
+    return raw_text.strip().upper()
+
+def count_words(process_text: str) -> int:
+    """Count words in processed text."""
+    return len(process_text.split())
+
+def count_chars(process_text: str) -> int:
+    """Count characters in processed text."""
+    return len(process_text)
+
+def create_pipelines(config: dict[str, Any] | None = None) -> dict[str, Pipeline]:
+    """Create pipelines for the text processing application."""
+    module = create_temporary_module(process_text, count_words, count_chars)
+    builder = Builder().with_modules(module)
 
     return {
         "word_counter": Pipeline(
             builder=builder,
             final_vars=["count_words"],
             description="Counts words in processed text"
-        )
-    }
-
-# Create and use the composer
-if __name__ == "__main__":
-    composer = HamiltonComposer(create_pipelines)
-    pipelines = composer.find_pipelines()
-
-    # Execute the pipeline
-    result = pipelines["word_counter"].execute(
-        inputs={"raw_data": "  hello world  "}
-    )
-    print(f"Word count: {result['count_words']}")  # Output: Word count: 2
-```
-
-### 2. CLI Application (No Configuration)
-
-Add a command-line interface to your application:
-
-```python
-# pipeline_functions.py
-def load_data(file_path: str) -> str:
-    with open(file_path, 'r') as f:
-        return f.read()
-
-def clean_data(load_data: str) -> str:
-    return load_data.strip().lower()
-
-def analyze_data(clean_data: str) -> dict:
-    words = clean_data.split()
-    return {
-        "word_count": len(words),
-        "unique_words": len(set(words)),
-        "avg_word_length": sum(len(w) for w in words) / len(words) if words else 0
-    }
-
-# cli_app.py
-from typing import Any, Dict
-from hamilton.driver import Builder
-from hamilton_composer import HamiltonComposer, Pipeline, build_cli
-import pipeline_functions
-
-def create_pipelines(config: Dict[str, Any] | None = None) -> Dict[str, Pipeline]:
-    """Create analysis pipelines."""
-    builder = Builder().with_modules(pipeline_functions)
-
-    return {
-        "text_analyzer": Pipeline(
-            builder=builder,
-            final_vars=["analyze_data"],
-            description="Analyzes text files for basic statistics"
         ),
-        "data_cleaner": Pipeline(
+        "char_counter": Pipeline(
             builder=builder,
-            final_vars=["clean_data"],
-            description="Cleans and normalizes text data",
-            public=True  # Accessible via CLI
+            final_vars=["count_chars"],
+            description="Counts characters in processed text"
+        ),
+        "full_analysis": Pipeline(
+            builder=builder,
+            final_vars=["count_words", "count_chars", "process_text"],
+            description="Complete text analysis"
         )
     }
 
-def main():
+if __name__ == "__main__":
     composer = HamiltonComposer(create_pipelines)
     cli = build_cli("text-processor", composer)
     cli()
-
-if __name__ == "__main__":
-    main()
 ```
 
-### 3. Advanced Application (CLI + Hydra Configuration)
+Run your CLI application:
 
-Create a fully-featured application with configuration management:
-
-**Project Structure:**
-```
-my_project/
-├── config/
-│   ├── config.yaml
-│   ├── database/
-│   │   ├── sqlite.yaml
-│   │   └── postgresql.yaml
-│   └── processing/
-│       ├── fast.yaml
-│       └── thorough.yaml
-├── src/
-│   ├── data_functions.py
-│   └── app.py
-└── run.py
+```bash
+python my_app.py list                                     # List available pipelines
+python my_app.py run word_counter raw_text="Hello world"  # Run specific pipeline
+python my_app.py shell                                    # Launch interactive shell
 ```
 
-**Configuration Files:**
+### 3. Advanced Application with Configuration
+
+Use YAML configuration files for more complex applications:
+
+**config.yaml:**
 ```yaml
-# config/config.yaml
-defaults:
-  - database: sqlite
-  - processing: fast
+# Configuration for text processing
+preprocessing:
+  uppercase: true
+  strip_whitespace: true
 
-output_path: "results.json"
+analysis:
+  min_word_length: 3
+  include_punctuation: false
 ```
 
-```yaml
-# config/database/sqlite.yaml
-driver: "sqlite"
-path: "data.db"
-```
-
-```yaml
-# config/processing/fast.yaml
-max_iterations: 10
-use_cache: true
-```
-
-**Application Code:**
+**advanced_app.py:**
 ```python
-# src/data_functions.py
-from hamilton.function_modifiers import config
-
-def load_from_db(database: dict) -> dict:
-    """Load data from configured database."""
-    if database["driver"] == "sqlite":
-        # SQLite loading logic
-        return {"data": f"SQLite data from {database['path']}"}
-    else:
-        # PostgreSQL loading logic
-        return {"data": f"PostgreSQL data from {database['host']}"}
-
-@config.when(processing__use_cache=True)
-def process_with_cache(load_from_db: dict, processing: dict) -> dict:
-    """Process data with caching enabled."""
-    return {
-        "processed": f"Cached processing: {load_from_db['data']} "
-                    f"(max_iter: {processing['max_iterations']})"
-    }
-
-@config.when(processing__use_cache=False)
-def process_without_cache(load_from_db: dict, processing: dict) -> dict:
-    """Process data without caching."""
-    return {
-        "processed": f"No-cache processing: {load_from_db['data']} "
-                    f"(max_iter: {processing['max_iterations']})"
-    }
-
-def save_results(process_with_cache: dict, process_without_cache: dict,
-                output_path: str) -> str:
-    """Save processing results."""
-    # This function will receive the output from whichever process_* function ran
-    data = process_with_cache or process_without_cache
-    return f"Saved to {output_path}: {data['processed']}"
-
-# src/app.py
-from typing import Any, Dict
+from dataclasses import dataclass
+from typing import Any
 from hamilton.driver import Builder
-from hamilton_composer import HamiltonComposer, Pipeline
-from . import data_functions
+from hamilton.ad_hoc_utils import create_temporary_module
+from hamilton_composer import HamiltonComposer, Pipeline, build_cli
 
-def create_pipelines(config: Dict[str, Any] | None = None) -> Dict[str, Pipeline]:
-    """Create data processing pipelines."""
-    builder = Builder().with_modules(data_functions).with_config(config or {})
+@dataclass
+class AppConfig:
+    """Configuration schema for the application."""
+    preprocessing: dict[str, Any]
+    analysis: dict[str, Any]
+
+def process_text(raw_text: str, uppercase: bool, strip_whitespace: bool) -> str:
+    """Process text based on configuration."""
+    result = raw_text
+    if strip_whitespace:
+        result = result.strip()
+    if uppercase:
+        result = result.upper()
+    return result
+
+def filter_words(process_text: str, min_word_length: int) -> list[str]:
+    """Filter words by minimum length."""
+    words = process_text.split()
+    return [word for word in words if len(word) >= min_word_length]
+
+def word_stats(filter_words: list[str]) -> dict[str, int]:
+    """Generate word statistics."""
+    return {
+        "total_words": len(filter_words),
+        "avg_word_length": sum(len(word) for word in filter_words) // len(filter_words) if filter_words else 0
+    }
+
+def create_pipelines(config: dict[str, Any] | None = None) -> dict[str, Pipeline]:
+    """Create pipelines with configuration support."""
+    module = create_temporary_module(process_text, filter_words, word_stats)
+
+    # Use config values as builder config
+    builder_config = {}
+    if config:
+        builder_config.update(config.get("preprocessing", {}))
+        builder_config.update(config.get("analysis", {}))
+
+    builder = Builder().with_modules(module).with_config(builder_config)
 
     return {
-        "data_pipeline": Pipeline(
+        "analyze": Pipeline(
             builder=builder,
-            final_vars=["save_results"],
-            description="Complete data processing pipeline with configurable components"
+            final_vars=["word_stats"],
+            description="Analyze text with configurable preprocessing"
         )
     }
 
-# run.py
-from hamilton_composer import build_cli
-from src.app import create_pipelines, HamiltonComposer
-
-def main():
+if __name__ == "__main__":
     composer = HamiltonComposer(
         create_pipelines,
-        config_directory="config",
-        config_name="config"
+        config_file="config.yaml",
+        schema=AppConfig
     )
-
-    cli = build_cli(
-        "data-processor",
-        composer,
-        help="Advanced data processing application with Hydra configuration"
-    )
+    cli = build_cli("advanced-processor", composer)
     cli()
+```
 
-if __name__ == "__main__":
-    main()
+Run with configuration:
+
+```bash
+python advanced_app.py run analyze raw_text="Hello beautiful world"
+python advanced_app.py run analyze raw_text="Hello world" preprocessing.uppercase=false
+python advanced_app.py shell --config-file custom_config.yaml
 ```
 
 ## Using the CLI
@@ -252,181 +230,186 @@ if __name__ == "__main__":
 Once you have a CLI-enabled application, you can use these commands:
 
 ### List Available Pipelines
+
 ```bash
-python run.py list
+python my_app.py list
 ```
 
+This shows all public pipelines with their descriptions and final variables.
+
 ### Run a Pipeline
+
 ```bash
 # Basic execution
-python run.py run data_pipeline
+python my_app.py run <pipeline_name>
 
-# With Hydra configuration overrides
-python run.py run data_pipeline database=postgresql processing.max_iterations=50
+# With configuration overrides using a OmegaConf dotlist
+python my_app.py run <pipeline_name> <input_param1>=<value1> <input_param2>=<value2>
 
-# With multiple overrides
-python run.py run data_pipeline database=postgresql processing=thorough output_path=custom_results.json
+# With custom config file
+python my_app.py --config-file run <pipeline_name> custom.yaml <input_param>=<value>
+```
+
+Examples:
+```bash
+python my_app.py run word_counter raw_text="Count these words"
+python my_app.py run analyze raw_text="Hello world" analysis.min_word_length=2
 ```
 
 ### Launch Interactive Shell
-```bash
-# Basic shell
-python run.py shell
 
-# Shell with configuration overrides
-python run.py shell database=postgresql processing=thorough
+```bash
+python my_app.py shell
 ```
 
-The shell provides access to:
-- `config`: Loaded configuration dictionary
-- `pipelines`: Dictionary of available Pipeline objects
+This launches an IPython shell with:
+- All pipelines preloaded as variables
+- Configuration available as `config`
+- Hamilton composer available as `composer`
 
 ### CLI Options
-```bash
-# Enable debug logging
-python run.py --debug run data_pipeline
 
-# Use different config directory
-python run.py --config-dir ./custom_config run data_pipeline
+Global options available for all commands:
 
-# Search for config in git root
-python run.py --search-git-root run data_pipeline
+- `--config-file, -c`: Specify a custom configuration file
+- `--search-git-root, -g`: Search for config files from git root
+- `--search-recursive, -r`: Search for config files recursively in parent directories
+- `--debug, -d`: Enable debug mode with detailed logging
+- `--help, -h`: Show help information
+
+## Advanced Features
+
+### Pipeline Configuration
+
+Pipelines support several configuration options:
+
+```python
+Pipeline(
+    builder=builder,
+    final_vars=["output1", "output2"],
+    description="Pipeline description shown in CLI",
+    tags=["processing", "analysis"],  # Tags for organization
+    public=True  # Whether pipeline appears in CLI (default: True)
+)
 ```
 
-## Jupyter Notebook Integration
+### Lifecycle Adapters
 
-Use Hamilton Composer pipelines directly in Jupyter notebooks:
+Add Hamilton lifecycle adapters to your pipelines:
+
+```python
+from hamilton.plugins.h_logging import LoggingAdapter
+
+def create_pipelines(config=None):
+    builder = (Builder()
+        .with_modules(my_module)
+        .with_adapters(LoggingAdapter("my_logger"))
+    )
+
+    return {
+        "logged_pipeline": Pipeline(builder, ["output"])
+    }
+```
+
+### Custom CLI Plugins
+
+Extend the CLI with custom commands:
+
+```python
+import click
+
+@click.command()
+@click.pass_context
+def custom_command(ctx):
+    """My custom command."""
+    composer = ctx.obj.composer
+    # Your custom logic here
+    click.echo("Custom command executed!")
+
+# Add to CLI
+cli = build_cli("my-app", composer, plugins=[custom_command])
+```
+
+### Error Handling
+
+Hamilton Composer provides rich error reporting and debugging:
+
+```bash
+# Run with debug mode for detailed error information
+python my_app.py --debug run my_pipeline --input_value 42
+```
+
+### Jupyter Notebook Integration
+
+Use your pipelines directly in Jupyter notebooks:
 
 ```python
 # In a Jupyter cell
-from src.app import create_pipelines
+from my_app import create_pipelines
 from hamilton_composer import HamiltonComposer
 
-# Create composer
-composer = HamiltonComposer(
-    create_pipelines,
-    config_directory="config",
-    config_name="config"
-)
-
-# Load configuration with overrides
-config = composer.load_config(params=["database=postgresql", "processing.use_cache=false"])
-
-# Get pipelines
-pipelines = composer.find_pipelines(config)
+composer = HamiltonComposer(create_pipelines, config_file="config.yaml")
+pipelines = composer.get_pipelines()
 
 # Execute pipeline
-result = pipelines["data_pipeline"].execute()
-print(result)
+result = pipelines["analyze"].execute({"raw_text": "Jupyter integration test"})
+display(result)
 
 # Visualize pipeline (requires graphviz)
-pipelines["data_pipeline"].visualize_execution()
+pipelines["analyze"].visualize()
 ```
 
-You can also launch the interactive shell from within a notebook:
+## Configuration Management
+
+Hamilton Composer uses [OmegaConf](https://omegaconf.readthedocs.io/) for configuration management:
+
+### Configuration Loading
 
 ```python
-# This will open an IPython shell in your terminal
-from hamilton_composer.exts.ipython import launch_shell
+composer = HamiltonComposer(
+    create_pipelines,
+    config_file="config.yaml",  # Path to config file
+    schema=MyConfigSchema       # Optional validation schema
+)
 
-config = composer.load_config()
-pipelines = composer.find_pipelines(config)
-launch_shell(config=config, pipelines=pipelines)
+# Load with overrides
+config = composer.load_config(
+    params=["key=value", "nested.key=new_value"],
+    search_git_root=True,
+    search_recursive=True
+)
 ```
 
-## Contributing
+### Configuration Schema
 
-We use modern Python tooling for development. Here's how to get started:
+Use dataclasses to validate and structure your configuration:
 
-### Development Setup
+```python
+from dataclasses import dataclass
+from typing import Optional
 
-1. **Install uv** (if not already installed):
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+@dataclass
+class DatabaseConfig:
+    host: str
+    port: int = 5432
+    username: Optional[str] = None
 
-2. **Clone and setup the project**:
-   ```bash
-   git clone <repository-url>
-   cd hamilton_composer
-   uv sync
-   ```
+@dataclass
+class AppConfig:
+    database: DatabaseConfig
+    debug: bool = False
 
-3. **Install pre-commit hooks**:
-   ```bash
-   uv run pre-commit install
-   ```
-
-### Development Commands
-
-```bash
-# Run tests
-uv run pytest
-
-# Run tests with coverage
-uv run pytest --cov=hamilton_composer
-
-# Format code
-uv run ruff format
-
-# Lint code
-uv run ruff check
-
-# Type checking
-uv run mypy
-
-# Run all checks (what CI runs)
-uv run nox
+composer = HamiltonComposer(
+    create_pipelines,
+    config_file="config.yaml",
+    schema=AppConfig
+)
 ```
 
-### Recommended VS Code Settings
+## Best Practices
 
-Create `.vscode/settings.json` in your project:
-
-```json
-{
-    "python.defaultInterpreterPath": "./.venv/bin/python",
-    "python.terminal.activateEnvironment": true,
-    "python.testing.pytestEnabled": true,
-    "python.testing.pytestArgs": ["tests"],
-    "python.linting.enabled": true,
-    "python.linting.ruffEnabled": true,
-    "python.formatting.provider": "black",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-        "source.organizeImports": true
-    },
-    "files.exclude": {
-        "**/__pycache__": true,
-        "**/.pytest_cache": true,
-        "**/.mypy_cache": true,
-        "**/.coverage": true,
-        "**/htmlcov": true
-    }
-}
-```
-
-### Project Structure
-
-- `src/hamilton_composer/` - Main package code
-- `tests/` - Unit tests
-- `tests/cases/` - Integration test scenarios
-- `noxfile.py` - Automated testing and linting
-- `pyproject.toml` - Project configuration and dependencies
-
-### Pull Request Guidelines
-
-1. **Create feature branch**: `git checkout -b feature/your-feature-name`
-2. **Make changes**: Follow existing code patterns and style
-3. **Add tests**: Ensure your changes are covered by tests
-4. **Run checks**: `uv run nox` should pass
-5. **Commit**: Use clear, descriptive commit messages
-6. **Push and create PR**: Include description of changes and testing done
-
-Pre-commit hooks will automatically:
-- Format code with Ruff
-- Lint code with Ruff
-- Type check with MyPy
-- Run basic tests
-
-For questions or suggestions, please open an issue or start a discussion.
+1. **Pipeline Organization**: Group related functionality into separate pipelines
+2. **Configuration**: Use structured config schemas for complex applications
+3. **Documentation**: Provide clear descriptions and docstrings for your functions
+4. **Error Handling**: Use Hamilton's built-in error handling and logging
+5. **Testing**: Test your pipeline functions independently before composing them

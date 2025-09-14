@@ -1,12 +1,14 @@
+from dataclasses import fields
+from dataclasses import is_dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Iterable, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, cast, overload
 
 from hamilton_composer.utils import get_git_root
 
 if TYPE_CHECKING:
     from hamilton_composer.pipeline import Pipeline
 
-    PipelineFunction = Callable[[dict[str, Any]], dict[str, Pipeline]]
+    PipelineFunction = Callable[[dict[str, Any] | None], dict[str, Pipeline]]
 else:
     Pipeline = object
     PipelineFunction = object
@@ -14,146 +16,125 @@ else:
 
 class HamiltonComposer:
     """
-    A composer that supports managing Hamilton pipelines with optional Hydra configurations.
+    A composer that supports managing Hamilton pipelines with optional OmegaConf configurations.
 
-    For more information on Hydra see the documentation https://hydra.cc/docs/intro/.
+    For more information on OmegaConf see https://omegaconf.readthedocs.io/en/latest/.
 
     Args:
-        pipeline_function (Callable | str):
+        pipeline_function (Callable[[dict[str, Any] | Any | None], dict[str, Pipeline]] | str):
             Pipeline creation function. Can be either a callable or a string representing the fully
-            qualified name of a module and function. In either case, the function should accept a
-            single dictionary argument for configuration parameters and return a dictionary mapping
-            pipeline names to their respective `Pipeline` instances.
-        config_directory (str | Path | None):
-            Path to the directory containing Hydra config files.
-            - If a relative path, it will be resolved against the current working directory or
-            along the specified search paths
-            - If it is an absolute path, it will be used as is
-            - If a str or path is specified but does not exist, an error will be raised
-            - If None, the composer will bypass configuration file loading creating and empty
-            configuration, note that Hydra overrides can still be used in this case.
-        config_name (str, optional):
-            Name of the root Hydra config file (without extension). Must be specified if
-            `config_dir` is provided.
+            qualified name of a module and function. In either case, the function can optionally
+            accept a single dictionary argument for configuration parameters and return a dictionary
+            mapping pipeline names to their respective `Pipeline` instances.
+        config_file (str | pathlib.Path, optional):
+            Path to configuration YAML file. If the path is specified as an absolute path, it will
+            be used as is. If the path is specified as a relative path, it will be resolved from the
+            current working directory subject to the search options in `load_config`. If None, the
+            composer will create an empty configuration, note that overrides can still be used in
+            this case.
         schema (type, optional):
             Structured config schema (dataclass or attrs class) to validate/complete config. If
-            not provided, no validation is performed. For more information on structured
-            configuration, see https://hydra.cc/docs/tutorials/structured_config/intro.
-        schema_name (str, optional):
-            Name of the schema to be used when registering it with Hydra's ConfigStore. If not
-            provided, it will default to `config_name + "_schema"`. Note that this should be
-            referred to in the default list of the configuration file.
+            not provided, no validation is performed. Must be either a dataclass either from the
+            standard library or a compatible library (i.e. pydantic). For more information on
+            see https://omegaconf.readthedocs.io/en/latest/structured_config.html.
     """
 
     def __init__(
         self,
         pipeline_function: PipelineFunction | str,
-        config_directory: str | Path | None = None,
-        config_name: str | None = None,
+        config_file: str | Path | None = None,
         schema: type | None = None,
-        schema_name: str | None = None,
     ) -> None:
+        if not isinstance(pipeline_function, str) and not callable(pipeline_function):
+            raise TypeError(
+                "pipeline_function must be a callable or a string representing the fully "
+                "qualified name of a module and function."
+            )
         self._pipeline_function = pipeline_function
-        self._config_directory, self._config_name = self._resolve_config_params(
-            config_directory, config_name
-        )
-        self._schema = schema
-        if self._schema:
-            if schema_name:
-                self._schema_name = schema_name
-            elif self._config_name:
-                self._schema_name = self._config_name + "_schema"
-            else:
+        self._config_file = config_file
+
+        self._schema = None
+        if schema:
+            if not is_dataclass(schema):
                 raise ValueError(
-                    "When a schema is provided, either `config_name` or `schema_name` "
-                    "must also be specified."
+                    "Schema must be a dataclass or compatible substitute (i.e pydantic)."
                 )
+            if not isinstance(schema, type):
+                raise ValueError("Schema must be a dataclass type vice a dataclass instance.")
+
+            self._schema = schema
 
     @property
-    def config_directory(self) -> Path | None:
-        """Returns the directory path that will be used for loading configurations."""
-        return Path(self._config_directory) if self._config_directory is not None else None
-
-    @property
-    def config_name(self) -> str | None:
-        """Returns the name of the root configuration file."""
-        return self._config_name
+    def config_file(self) -> Path | None:
+        """Returns the location of configuration file (relative or absolute)."""
+        return Path(self._config_file) if self._config_file is not None else None
 
     def load_config(
         self,
-        directory: str | Path | None = None,
-        name: str | None = None,
+        filepath: str | Path | None = None,
         params: Iterable[str] | None = None,
         search_git_root: bool = False,
         search_recursive: bool = False,
     ) -> dict[str, Any]:
         """
-        Loads the configuration for the composer using Hydra's initialize/compose API.
+        Loads the configuration for the composer using OmegaConf.
 
         Args:
-            directory (str | Path, optional):
-                Manually specify the path to the configuration directory. If not provided, the
-                `config_dir` specified during initialization will be used. If this is a relative
-                path, it will be resolved against the current working directory. If it is an
-                absolute path, it will be used as is. If the path does not exist, an error will be
-                raised.
-            name (str, optional):
-                Manually specify the name of the root configuration file (without extension). If not
-                provided, the `config_name` specified during initialization will be used.
-            params (list[str], optional):
-                Iterable of parameters for Hydra. E.g., ["db.user=chuck", "debug=True"]. For more
-                information see https://hydra.cc/docs/advanced/override_grammar/basic/.
+            filepath (str | Path, optional):
+                Override the path to the configuration file specified in `config_file` during
+                insanitation. If this is a relative path, it will be resolved against the current
+                working directory. If it is an absolute path, it will be used as is. If the path
+                does not exist, an error will be raised.
+            params (Iterable[str], optional):
+                Additional parameters to override the configuration. These should be provided as
+                key-value pairs in the form of `key=value`. If not provided, no additional
+                parameters will be used.
             search_git_root (bool, optional):
                 If True attempts to find the config directory relative to the git root. Defaults to
-                False. Ignored if `config_dir` is an absolute path.
+                False. Ignored if `filepath` is an absolute path.
             search_recursive (bool, optional):
                 If True, searches for the config directory recursively from the current working
-                directory. Defaults to False. Ignored if `config_dir` is an absolute path.
+                directory. Defaults to False. Ignored if `filepath` is an absolute path.
 
         Returns:
-            The composed configuration as a standard dictionary or structured config, depending on
-            whether a schema was provided.
+            The composed configuration as a dictionary or an instance of the current schema.
+
         """
-        from hydra import compose
-        from hydra import initialize
-        from hydra import initialize_config_dir
-        from hydra.core.config_store import ConfigStore
         from omegaconf import OmegaConf
 
-        directory, name = self._resolve_config_params(directory, name)
-
-        # Resolve the configuration parameters
-        config_dir = self._resolve_config_dir(
-            directory if directory is not None else self._config_directory,
-            search_git_root,
-            search_recursive,
+        config_file = self._resolve_config_file(
+            filepath if filepath is not None else self._config_file,
+            search_git_root=search_git_root,
+            search_recursive=search_recursive,
         )
-        config_name = name if name is not None else self._config_name
-        params = list(params) if params is not None else []
 
-        # We need to select the appropriate hydra initializer
-        initializer_kwargs: dict[str, Any] = {}
-        initializer: type
-        if config_dir is None:
-            initializer = initialize
-            initializer_kwargs = {"config_path": None, "version_base": None}
-            config_name = None
-        else:
-            initializer = initialize_config_dir
-            initializer_kwargs = {"config_dir": config_dir, "version_base": None}
+        params = OmegaConf.from_dotlist(list(params)) if params else OmegaConf.create()
 
-        # Schemas need to be registered in the ConfigStore
-        if self._schema is not None:
-            cs = ConfigStore.instance()
-            cs.store(name=self._schema_name, node=self._schema)
+        composed = OmegaConf.load(config_file) if config_file else OmegaConf.create()
+        composed = OmegaConf.merge(composed, params)
 
-        # Initialize Hydra and compose the configuration
-        with initializer(**initializer_kwargs):
-            cfg = compose(config_name=config_name, overrides=params)
-            container = OmegaConf.to_container(cfg, resolve=True)
-        return cast(dict[str, Any], container)
+        if self._schema:
+            structured_default = OmegaConf.structured(self._schema)
+            merged = OmegaConf.merge(structured_default, composed)
+            instance = OmegaConf.to_object(merged)
+            assert is_dataclass(instance), "Schema must be a dataclass type."
+            config = {field.name: getattr(instance, field.name) for field in fields(instance)}
+            return config
 
-    def find_pipelines(self, config: dict[str, Any] | None = None) -> dict[str, Pipeline]:
+        container = cast(dict[str, Any], OmegaConf.to_container(composed, resolve=True))
+        assert isinstance(container, dict)
+        return container
+
+    @overload
+    def find_pipelines(self, config: dict[str, Any]) -> dict[str, Pipeline]: ...
+
+    @overload
+    def find_pipelines(self, config: Any) -> dict[str, Pipeline]: ...
+
+    @overload
+    def find_pipelines(self) -> dict[str, Pipeline]: ...
+
+    def find_pipelines(self, config: dict[str, Any] | Any | None = None) -> dict[str, Pipeline]:
         """
         Finds and returns all pipelines defined in the specified module.
 
@@ -176,61 +157,42 @@ class HamiltonComposer:
         else:
             create_pipelines_func = self._pipeline_function
 
-        config = config if config is not None else {}
         return create_pipelines_func(config)
 
-    def _resolve_config_params(
-        self, directory: str | Path | None, name: str | None
-    ) -> tuple[Path | str | None, str | None]:
-        """Validates the configuration directory and name."""
-        if len(set([directory is not None, name is not None])) != 1:
-            raise ValueError(
-                "Either both the configuration directory and configuration name must be provided, "
-                "or neither."
-            )
-        if name:
-            name = name.replace(".yaml", "").replace(".yml", "") if name else None
-        return directory, name
-
-    def _resolve_config_dir(
+    def _resolve_config_file(
         self,
-        search_dir: str | Path | None,
+        initial_path: str | Path | None,
         search_git_root: bool,
         search_recursive: bool,
-    ) -> str | None:
-        """
-        Resolves the configuration directory to an absolute path.
-
-        Note that this method returns a string so that it can be used directly with Hydra's
-        `initialize_config_dir` or `initialize` functions, which both expect a string path.
-        """
-        if search_dir is None:
+    ) -> Path | None:
+        """Resolves the location of the configuration file to an absolute path."""
+        if initial_path is None:
             return None
 
-        path = Path(search_dir)
+        path = Path(initial_path)
 
         if path.is_absolute():
             if not path.exists():
                 raise FileNotFoundError(f"Configuration directory '{path}' does not exist.")
-            return str(path.resolve())
+            return path.resolve()
 
         local_path = Path.cwd().joinpath(path)
         if local_path.exists():
-            return str(local_path.resolve())
+            return local_path.resolve()
 
         if search_git_root:
             git_root = get_git_root(raise_error=False)
             if git_root is not None:
                 git_path = git_root.joinpath(path)
                 if git_path.exists():
-                    return str(git_path.resolve())
+                    return git_path.resolve()
 
         if search_recursive:
             current_dir = Path.cwd()
             while current_dir != current_dir.parent:
                 candidate_path = current_dir.joinpath(path)
                 if candidate_path.exists():
-                    return str(candidate_path.resolve())
+                    return candidate_path.resolve()
                 current_dir = current_dir.parent
 
         raise FileNotFoundError(
