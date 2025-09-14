@@ -225,6 +225,7 @@ def create_pipelines(config: dict[str, Any] | None = None) -> dict[str, Pipeline
 
 
 if __name__ == "__main__":
+    # Relative config file paths allow for searching based on cwd, git root, or parent directories
     composer = HamiltonComposer(create_pipelines, config_file="config.yaml", schema=AppConfig)
     cli = build_cli("advanced-processor", composer)
     cli()
@@ -285,9 +286,9 @@ This launches an IPython shell with:
 
 Global options available for all commands:
 
-- `--config-file, -c`: Specify a custom configuration file
-- `--search-git-root, -g`: Search for config files from git root
-- `--search-recursive, -r`: Search for config files recursively in parent directories
+- `--config-file, -c`: Specify a custom configuration file. If a relative path is given, it will searched for based on the current working directory and search options.
+- `--search-git-root, -g`: Search for config files from git root. Only applies if `--config-file` is a relative path.
+- `--search-recursive, -r`: Search for config files recursively in parent directories. only applies if `--config-file` is a relative path.
 - `--debug, -d`: Enable debug mode with detailed logging
 - `--help, -h`: Show help information
 
