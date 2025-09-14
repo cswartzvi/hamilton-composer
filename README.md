@@ -1,5 +1,13 @@
 # Hamilton Composer
 
+[![PyPI](https://img.shields.io/pypi/v/hamilton-composer?label=PyPI)](https://pypi.org/project/hamilton-composer/)
+[![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/)
+[![mypy](https://img.shields.io/badge/mypy-checked-blue)](http://mypy-lang.org/)
+[![Pyright](https://img.shields.io/badge/pyright-checked-blue)](https://github.com/microsoft/pyright)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![tests](https://img.shields.io/github/actions/workflow/status/cswartzvi/hamilton-composer/testing.yaml?branch=main&label=CI&logo=github)](https://github.com/cswartzvi/hamilton-composer/actions/workflows/testing.yaml)
+[![codecov](https://codecov.io/github/cswartzvi/hamilton-composer/graph/badge.svg?token=1o01x0xk7i)](https://codecov.io/github/cswartzvi/hamilton-composer)
+
 Hamilton Composer simplifies the creation and management of [Hamilton](https://hamilton.dagworks.io/) data pipelines with built-in CLI support and optional OmegaConf configuration management. Transform your Hamilton DAGs into executable applications with minimal boilerplate.
 
 ## Features
