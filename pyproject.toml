@@ -14,6 +14,8 @@ dependencies = [
     "rich>=12.0.0",
     "sf-hamilton>=1.88.0",
 ]
+readme = "README.md"
+license = {file = "LICENSE"}
 
 [project.optional-dependencies]
 ipython = ["ipython>=8.0"]
