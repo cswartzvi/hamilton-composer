@@ -163,8 +163,11 @@ from hamilton_composer import HamiltonComposer, Pipeline, build_cli
 @dataclass
 class AppConfig:
     """Configuration schema for the application."""
+
+    raw_text: str
     preprocessing: dict[str, Any]
     analysis: dict[str, Any]
+
 
 def process_text(raw_text: str, uppercase: bool, strip_whitespace: bool) -> str:
     """Process text based on configuration."""
@@ -175,17 +178,22 @@ def process_text(raw_text: str, uppercase: bool, strip_whitespace: bool) -> str:
         result = result.upper()
     return result
 
+
 def filter_words(process_text: str, min_word_length: int) -> list[str]:
     """Filter words by minimum length."""
     words = process_text.split()
     return [word for word in words if len(word) >= min_word_length]
 
+
 def word_stats(filter_words: list[str]) -> dict[str, int]:
     """Generate word statistics."""
     return {
         "total_words": len(filter_words),
-        "avg_word_length": sum(len(word) for word in filter_words) // len(filter_words) if filter_words else 0
+        "avg_word_length": sum(len(word) for word in filter_words) // len(filter_words)
+        if filter_words
+        else 0,
     }
+
 
 def create_pipelines(config: dict[str, Any] | None = None) -> dict[str, Pipeline]:
     """Create pipelines with configuration support."""
@@ -203,18 +211,16 @@ def create_pipelines(config: dict[str, Any] | None = None) -> dict[str, Pipeline
         "analyze": Pipeline(
             builder=builder,
             final_vars=["word_stats"],
-            description="Analyze text with configurable preprocessing"
+            description="Analyze text with configurable preprocessing",
         )
     }
 
+
 if __name__ == "__main__":
-    composer = HamiltonComposer(
-        create_pipelines,
-        config_file="config.yaml",
-        schema=AppConfig
-    )
+    composer = HamiltonComposer(create_pipelines, config_file="config.yaml", schema=AppConfig)
     cli = build_cli("advanced-processor", composer)
     cli()
+
 ```
 
 Run with configuration:
