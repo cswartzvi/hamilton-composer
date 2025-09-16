@@ -60,8 +60,8 @@ class TestCLIFactory:
 
         runner = CliRunner()
         with runner.isolated_filesystem():
-            config_file = Path("config.yaml")
-            config_file.write_text("test: value")
+            config_path = Path("config.yaml")
+            config_path.write_text("test: value")
 
-            result = runner.invoke(cli, ["--config-file", str(config_file), "list"])
+            result = runner.invoke(cli, ["--config-path", str(config_path), "list"])
             assert result.exit_code == 0

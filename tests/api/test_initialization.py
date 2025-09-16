@@ -29,7 +29,7 @@ class TestComposerInitialization:
     def test_initialization_without_config(self):
         """Test composer initialization without configuration."""
         composer = HamiltonComposer("tests.defs.pipelines.create_pipelines")
-        assert composer.config_file is None
+        assert composer.config_path is None
 
         config = composer.load_config()
         assert config == {}
@@ -42,7 +42,7 @@ class TestComposerInitialization:
         from .. import defs
 
         composer = HamiltonComposer(defs.pipelines.create_pipelines)
-        assert composer.config_file is None
+        assert composer.config_path is None
 
         config = composer.load_config()
         assert config == {}
@@ -57,11 +57,11 @@ class TestComposerConfigLoading:
     def test_load_config_from_file(self, tmp_path):
         """Test loading configuration from YAML file."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("numbers: [1, 2, 3]")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("numbers: [1, 2, 3]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file
+            "tests.defs.pipelines.create_pipelines", config_path=config_path
         )
 
         config = composer.load_config()
@@ -70,13 +70,13 @@ class TestComposerConfigLoading:
         pipelines = composer.find_pipelines(config)
         assert set(pipelines) == {"simple_pipeline", "branched_pipeline"}
 
-    def test_load_config_file_not_found(self, tmp_path):
+    def test_load_config_path_not_found(self, tmp_path):
         """Test error when config file doesn't exist."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "nonexistent.yaml"
+        config_path = tmp_path / "nonexistent.yaml"
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file
+            "tests.defs.pipelines.create_pipelines", config_path=config_path
         )
 
         with pytest.raises(FileNotFoundError):
@@ -85,15 +85,41 @@ class TestComposerConfigLoading:
     def test_load_config_with_parameters_override(self, tmp_path):
         """Test loading config with parameter overrides."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("numbers: [1, 2, 3]")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("numbers: [1, 2, 3]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file
+            "tests.defs.pipelines.create_pipelines", config_path=config_path
         )
 
         config = composer.load_config(params=["numbers=[4,5,6]"])
         assert config == {"numbers": [4, 5, 6]}
+
+    def test_load_config_from_directory(self, tmp_path):
+        """Test loading configuration from a directory."""
+
+        os.chdir(tmp_path)
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+
+        (config_dir / "numbers.yaml").write_text("[1, 2, 3]")
+        (config_dir / "method.yaml").write_text("multiply")
+
+        nested = config_dir / "branch"
+        nested.mkdir()
+        (nested / "factor.yaml").write_text("2")
+        (nested / "options.yaml").write_text("enabled: true")
+
+        composer = HamiltonComposer(
+            "tests.defs.pipelines.create_pipelines", config_path=config_dir
+        )
+
+        config = composer.load_config()
+        assert config == {
+            "numbers": [1, 2, 3],
+            "method": "multiply",
+            "branch": {"factor": 2, "options": {"enabled": True}},
+        }
 
 
 class TestComposerWithSchema:
@@ -102,11 +128,11 @@ class TestComposerWithSchema:
     def test_schema_validation_success(self, tmp_path):
         """Test successful schema validation."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("key: test_value")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("key: test_value")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file, schema=SimpleSchema
+            "tests.defs.pipelines.create_pipelines", config_path=config_path, schema=SimpleSchema
         )
 
         config = composer.load_config()
@@ -115,11 +141,11 @@ class TestComposerWithSchema:
     def test_schema_with_defaults(self, tmp_path):
         """Test schema providing default values."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "empty.yaml"
-        config_file.write_text("# empty config")
+        config_path = tmp_path / "empty.yaml"
+        config_path.write_text("# empty config")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file, schema=SimpleSchema
+            "tests.defs.pipelines.create_pipelines", config_path=config_path, schema=SimpleSchema
         )
 
         # This should work with missing fields by providing them via params
@@ -164,8 +190,8 @@ class TestComposerConfigResolution:
         subprocess.run(["git", "init"], check=True, capture_output=True)
 
         # Create config in git root
-        config_file = tmp_path / "project_config.yaml"
-        config_file.write_text("numbers: [1, 2, 3]")
+        config_path = tmp_path / "project_config.yaml"
+        config_path.write_text("numbers: [1, 2, 3]")
 
         # Create and move to subdirectory
         subdir = tmp_path / "sub" / "deep"
@@ -173,7 +199,7 @@ class TestComposerConfigResolution:
         os.chdir(subdir)
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file="project_config.yaml"
+            "tests.defs.pipelines.create_pipelines", config_path="project_config.yaml"
         )
 
         config = composer.load_config(search_git_root=True)
@@ -184,8 +210,8 @@ class TestComposerConfigResolution:
         os.chdir(tmp_path)
 
         # Create config in parent directory
-        config_file = tmp_path / "project_config.yaml"
-        config_file.write_text("numbers: [4, 5, 6]")
+        config_path = tmp_path / "project_config.yaml"
+        config_path.write_text("numbers: [4, 5, 6]")
 
         # Create and move to subdirectory
         subdir = tmp_path / "sub" / "deep"
@@ -193,18 +219,41 @@ class TestComposerConfigResolution:
         os.chdir(subdir)
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file="project_config.yaml"
+            "tests.defs.pipelines.create_pipelines", config_path="project_config.yaml"
         )
 
         config = composer.load_config(search_recursive=True)
         assert config == {"numbers": [4, 5, 6]}
+
+    def test_config_directory_resolution_with_search(self, tmp_path):
+        """Test resolving configuration directories with search options."""
+
+        import subprocess
+
+        os.chdir(tmp_path)
+        subprocess.run(["git", "init"], check=True, capture_output=True)
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "numbers.yaml").write_text("[7, 8, 9]")
+
+        subdir = tmp_path / "child"
+        subdir.mkdir()
+        os.chdir(subdir)
+
+        composer = HamiltonComposer(
+            "tests.defs.pipelines.create_pipelines", config_path="config"
+        )
+
+        config = composer.load_config(search_git_root=True)
+        assert config == {"numbers": [7, 8, 9]}
 
     def test_config_resolution_fallback_error(self, tmp_path):
         """Test error when config file not found with all search options."""
         os.chdir(tmp_path)
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file="nonexistent.yaml"
+            "tests.defs.pipelines.create_pipelines", config_path="nonexistent.yaml"
         )
 
         with pytest.raises(FileNotFoundError, match="not found in the current working directory"):
