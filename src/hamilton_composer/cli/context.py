@@ -19,14 +19,14 @@ class AppContext:
         composer: HamiltonComposer,
         logger: Logger,
         *,
-        config_file: str | Path | None = None,
+        config_path: str | Path | None = None,
         search_recursive: bool = False,
         search_git_root: bool = False,
     ) -> None:
         self._project_name = name
         self._composer = composer
         self._logger = logger
-        self._config_file = config_file
+        self._config_path = config_path
         self._search_recursive = search_recursive
         self._search_git_root = search_git_root
         self._cached_pipelines: dict[str, Pipeline] | None = None
@@ -46,7 +46,7 @@ class AppContext:
         """Delegates config loading to the current Hamilton composer within the current context."""
         if self._cached_config is None:
             self._cached_config = self._composer.load_config(
-                filepath=self._config_file,
+                path=self._config_path,
                 params=params,
                 search_git_root=self._search_git_root,
                 search_recursive=self._search_recursive,

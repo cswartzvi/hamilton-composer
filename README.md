@@ -225,8 +225,8 @@ def create_pipelines(config: dict[str, Any] | None = None) -> dict[str, Pipeline
 
 
 if __name__ == "__main__":
-    # Relative config file paths allow for searching based on cwd, git root, or parent directories
-    composer = HamiltonComposer(create_pipelines, config_file="config.yaml", schema=AppConfig)
+    # Relative config paths allow for searching based on cwd, git root, or parent directories
+    composer = HamiltonComposer(create_pipelines, config_path="config.yaml", schema=AppConfig)
     cli = build_cli("advanced-processor", composer)
     cli()
 
@@ -237,7 +237,7 @@ Run with configuration:
 ```bash
 python advanced_app.py run analyze raw_text="Hello beautiful world"
 python advanced_app.py run analyze raw_text="Hello world" preprocessing.uppercase=false
-python advanced_app.py shell --config-file custom_config.yaml
+python advanced_app.py shell --config-path custom_config.yaml
 ```
 
 ## Using the CLI
@@ -261,8 +261,8 @@ python my_app.py run <pipeline_name>
 # With configuration overrides using a OmegaConf dotlist
 python my_app.py run <pipeline_name> <input_param1>=<value1> <input_param2>=<value2>
 
-# With custom config file
-python my_app.py --config-file run <pipeline_name> custom.yaml <input_param>=<value>
+# With custom config path
+python my_app.py --config-path run <pipeline_name> custom.yaml <input_param>=<value>
 ```
 
 Examples:
@@ -286,9 +286,9 @@ This launches an IPython shell with:
 
 Global options available for all commands:
 
-- `--config-file, -c`: Specify a custom configuration file. If a relative path is given, it will searched for based on the current working directory and search options.
-- `--search-git-root, -g`: Search for config files from git root. Only applies if `--config-file` is a relative path.
-- `--search-recursive, -r`: Search for config files recursively in parent directories. only applies if `--config-file` is a relative path.
+- `--config-path, -c`: Specify a custom configuration file or directory. If a relative path is given, it will searched for based on the current working directory and search options.
+- `--search-git-root, -g`: Search for config files from git root. Only applies if `--config-path` is a relative path.
+- `--search-recursive, -r`: Search for config files recursively in parent directories. only applies if `--config-path` is a relative path.
 - `--debug, -d`: Enable debug mode with detailed logging
 - `--help, -h`: Show help information
 
@@ -363,7 +363,7 @@ Use your pipelines directly in Jupyter notebooks:
 from my_app import create_pipelines
 from hamilton_composer import HamiltonComposer
 
-composer = HamiltonComposer(create_pipelines, config_file="config.yaml")
+composer = HamiltonComposer(create_pipelines, config_path="config.yaml")
 pipelines = composer.get_pipelines()
 
 # Execute pipeline
@@ -383,7 +383,7 @@ Hamilton Composer uses [OmegaConf](https://omegaconf.readthedocs.io/) for config
 ```python
 composer = HamiltonComposer(
     create_pipelines,
-    config_file="config.yaml",  # Path to config file
+    config_path="config.yaml",  # Path to config file or directory
     schema=MyConfigSchema       # Optional validation schema
 )
 
@@ -416,7 +416,7 @@ class AppConfig:
 
 composer = HamiltonComposer(
     create_pipelines,
-    config_file="config.yaml",
+    config_path="config.yaml",
     schema=AppConfig
 )
 ```

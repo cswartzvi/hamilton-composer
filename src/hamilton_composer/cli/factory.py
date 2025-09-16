@@ -72,7 +72,7 @@ def build_cli(
             name=project_name,
             composer=composer,
             logger=logger,
-            config_file=kwargs["config_file"],
+            config_path=kwargs["config_path"],
             search_git_root=kwargs["search_git_root"],
             search_recursive=kwargs["search_recursive"],
         )
@@ -94,8 +94,8 @@ def build_cli(
         is_flag=True,
         default=False,
         help=(
-            "Search for the configuration file recursively in parent directories. Only used if "
-            "`--config-file` is a relative path (either the specified or default value)."
+            "Search for the configuration path recursively in parent directories. Only used if "
+            "`--config-path` is a relative path (either the specified or default value)."
         ),
     )(app)
 
@@ -105,18 +105,19 @@ def build_cli(
         is_flag=True,
         default=False,
         help=(
-            "Search for the configuration directory relative to the git root. Only used if "
-            "`--config-file` is a relative path (either the specified or default value)."
+            "Search for the configuration path relative to the git root. Only used if "
+            "`--config-path` is a relative path (either the specified or default value)."
         ),
     )(app)
 
     app = click.option(
-        "--config-file",
-        default=composer.config_file,
+        "--config-path",
+        "-c",
+        default=composer.config_path,
         show_default=False,  # The default is set manually in the help
         help=(
-            f"Location of YAML configuration file for the project pipelines. "
-            f"[default: {composer.config_file}]"
+            "Location of configuration file or directory for the project pipelines. "
+            f"[default: {composer.config_path}]"
         ),
     )(app)
 
