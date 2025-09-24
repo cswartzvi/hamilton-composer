@@ -21,13 +21,13 @@ class TestRunPipelineWithNoConfig:
 class TestRunPipelineWithConfig:
     """Test running pipelines with configuration files."""
 
-    def test_run_with_config_file(self, runner):
+    def test_run_with_config_path(self, runner):
         """Test pipeline execution with YAML configuration file."""
         parameters_file = Path("parameters.yaml")
         parameters_file.write_text("numbers: [1, 2, 3]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=parameters_file
+            "tests.defs.pipelines.create_pipelines", config_path=parameters_file
         )
         cli = build_cli("test-project", composer)
 
@@ -41,13 +41,29 @@ class TestRunPipelineWithConfig:
         parameters_file.write_text("numbers: [1, 2, 3]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=parameters_file
+            "tests.defs.pipelines.create_pipelines", config_path=parameters_file
         )
         cli = build_cli("test-project", composer)
 
         result = runner.invoke(cli, ["run", "simple_pipeline", "numbers=[2,3,4]"])
         assert result.exit_code == 0
         assert "sum_doubled = 18" in result.output
+
+    def test_run_with_config_directory(self, runner):
+        """Test pipeline execution with a configuration directory."""
+
+        parameters_dir = Path("config")
+        parameters_dir.mkdir()
+        (parameters_dir / "numbers.yaml").write_text("[1, 2, 3]")
+
+        composer = HamiltonComposer(
+            "tests.defs.pipelines.create_pipelines", config_path=parameters_dir
+        )
+        cli = build_cli("test-project", composer)
+
+        result = runner.invoke(cli, ["run", "simple_pipeline"])
+        assert result.exit_code == 0
+        assert "sum_doubled = 12" in result.output
 
     def test_run_with_schema_validation(self, runner):
         """Test pipeline execution with schema validation."""
@@ -60,7 +76,7 @@ class TestRunPipelineWithConfig:
         parameters_file.write_text("numbers: [1, 2, 3]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=parameters_file, schema=Config
+            "tests.defs.pipelines.create_pipelines", config_path=parameters_file, schema=Config
         )
         cli = build_cli("test-project", composer)
 

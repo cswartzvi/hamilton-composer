@@ -39,14 +39,30 @@ class TestPipelineExecutionWithoutConfig:
 class TestPipelineExecutionWithConfig:
     """Test pipeline execution with configuration files."""
 
-    def test_execution_with_config_file(self, tmp_path):
+    def test_execution_with_config_path(self, tmp_path):
         """Test pipeline execution with YAML config file."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("numbers: [1, 2, 3]")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("numbers: [1, 2, 3]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file
+            "tests.defs.pipelines.create_pipelines", config_path=config_path
+        )
+        config = composer.load_config()
+        pipelines = composer.find_pipelines(config)
+        result = pipelines["simple_pipeline"].execute(inputs=config)
+        assert result == {"sum_doubled": 12}
+
+    def test_execution_with_config_directory(self, tmp_path):
+        """Test pipeline execution with configuration directory."""
+
+        os.chdir(tmp_path)
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "numbers.yaml").write_text("[1, 2, 3]")
+
+        composer = HamiltonComposer(
+            "tests.defs.pipelines.create_pipelines", config_path=config_dir
         )
         config = composer.load_config()
         pipelines = composer.find_pipelines(config)
@@ -57,18 +73,18 @@ class TestPipelineExecutionWithConfig:
         """Test execution with runtime config file override."""
         os.chdir(tmp_path)
 
-        config_file1 = tmp_path / "config1.yaml"
-        config_file1.write_text("numbers: [1, 2, 3]")
+        config_path1 = tmp_path / "config1.yaml"
+        config_path1.write_text("numbers: [1, 2, 3]")
 
-        config_file2 = tmp_path / "config2.yaml"
-        config_file2.write_text("numbers: [2, 3, 4]")
+        config_path2 = tmp_path / "config2.yaml"
+        config_path2.write_text("numbers: [2, 3, 4]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file1
+            "tests.defs.pipelines.create_pipelines", config_path=config_path1
         )
 
         # Override config at runtime
-        config = composer.load_config(filepath=config_file2)
+        config = composer.load_config(path=config_path2)
         pipelines = composer.find_pipelines(config)
         result = pipelines["simple_pipeline"].execute(inputs=config)
         assert result == {"sum_doubled": 18}  # 2*2 + 2*3 + 2*4 = 18
@@ -76,11 +92,11 @@ class TestPipelineExecutionWithConfig:
     def test_execution_with_schema_validation(self, tmp_path):
         """Test pipeline execution with schema validation."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("numbers: [2, 4, 6]")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("numbers: [2, 4, 6]")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file, schema=SimpleSchema
+            "tests.defs.pipelines.create_pipelines", config_path=config_path, schema=SimpleSchema
         )
         config = composer.load_config()
         pipelines = composer.find_pipelines(config)
@@ -90,11 +106,11 @@ class TestPipelineExecutionWithConfig:
     def test_execution_with_node_branching_config(self, tmp_path):
         """Test pipeline execution with node-specific branching."""
         os.chdir(tmp_path)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("numbers: [1, 2, 3]\nmethod: add\nfactor: 2")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("numbers: [1, 2, 3]\nmethod: add\nfactor: 2")
 
         composer = HamiltonComposer(
-            "tests.defs.pipelines.create_pipelines", config_file=config_file
+            "tests.defs.pipelines.create_pipelines", config_path=config_path
         )
         config = composer.load_config()
         pipelines = composer.find_pipelines(config)
