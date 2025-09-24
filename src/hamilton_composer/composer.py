@@ -88,26 +88,12 @@ class HamiltonComposer:
         """Returns the location of the configuration path (relative or absolute)."""
         return Path(self._config_path) if self._config_path is not None else None
 
-    @property
-    def config_file(self) -> Path | None:
-        """Deprecated alias for :attr:`config_path`."""
-
-        warnings.warn(
-            "'config_file' is deprecated and will be removed in a future release. "
-            "Use 'config_path' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.config_path
-
     def load_config(
         self,
         path: str | Path | None = None,
         params: Iterable[str] | None = None,
         search_git_root: bool = False,
         search_recursive: bool = False,
-        *,
-        filepath: object = _MISSING,
     ) -> dict[str, Any]:
         """
         Loads the configuration for the composer using OmegaConf.
@@ -134,18 +120,6 @@ class HamiltonComposer:
 
         """
         from omegaconf import OmegaConf
-
-        if filepath is not _MISSING:
-            warnings.warn(
-                "The 'filepath' argument is deprecated. Please use 'path' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if path is not None and path != filepath:
-                raise ValueError(
-                    "Both 'path' and the deprecated 'filepath' were provided. Please supply only 'path'."
-                )
-            path = cast(str | Path | None, filepath)
 
         config_path = self._resolve_config_path(
             path if path is not None else self._config_path,
@@ -247,7 +221,6 @@ class HamiltonComposer:
 
     def _load_config_from_path(self, path: Path | None):
         """Load a configuration from a file or directory."""
-
         from omegaconf import OmegaConf
         from omegaconf.errors import OmegaConfBaseException
 
